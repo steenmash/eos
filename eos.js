@@ -121,23 +121,48 @@ function buildMixtureState(componentIds, composition, T, P) {
   const A = (aMix * P) / (Math.pow(GAS_CONSTANT * T, 2));
   const B = (bMix * P) / (GAS_CONSTANT * T);
   const roots = cubicRoots(A, B);
-  const Zliquid = Math.min(...roots);
-  const Zvapor = Math.max(...roots);
-  const calcPhi = (Z) => {
-    const logTerm = Math.log(
-      (Z + (1 + SQRT2) * B) / (Z + (1 - SQRT2) * B)
-    );
-    const phi = new Array(n).fill(0);
-    for (let i = 0; i < n; i += 1) {
-      const term1 = (pure[i].b / bMix) * (Z - 1);
-      const term2 = -Math.log(Math.max(Z - B, 1e-12));
-      const term3 =
-        (A / (2 * SQRT2 * B)) *
-        (2 * sumA[i] / aMix - pure[i].b / bMix) *
-        logTerm;
-      phi[i] = Math.exp(term1 + term2 - term3);
+  const validRoots = roots.filter(
+    (root) => Number.isFinite(root) && root > B + 1e-12
+  );
+  if (validRoots.length === 0 && roots.length > 0) {
+    const fallback = roots.find((root) => Number.isFinite(root));
+    if (typeof fallback === "number") {
+      validRoots.push(fallback);
     }
-    return { phi, logTerm };
+  }
+  if (validRoots.length === 0) {
+    validRoots.push(1);
+  }
+  const Zliquid = Math.min(...validRoots);
+  const Zvapor = Math.max(...validRoots);
+  const calcPhi = (Z) => {
+    const phi = new Array(n).fill(1);
+    const lnPhi = new Array(n).fill(0);
+    if (!Number.isFinite(Z)) {
+      return { phi, lnPhi, logTerm: 0 };
+    }
+    const numerator = Math.max(Z + (1 + SQRT2) * B, 1e-12);
+    const denominator = Math.max(Z + (1 - SQRT2) * B, 1e-12);
+    const logTerm = Math.log(numerator / denominator);
+    const safeZMinusB = Math.max(Z - B, 1e-12);
+    const logZMinusB = Math.log(safeZMinusB);
+    for (let i = 0; i < n; i += 1) {
+      const biOverB = bMix === 0 ? 0 : pure[i].b / bMix;
+      const term1 = biOverB * (Z - 1);
+      const term2 = -logZMinusB;
+      let term3 = 0;
+      if (Math.abs(B) > 1e-12 && Math.abs(aMix) > 1e-12) {
+        term3 =
+          (A / (2 * SQRT2 * B)) *
+          ((2 * sumA[i]) / aMix - biOverB) *
+          logTerm;
+      }
+      const lnVal = term1 + term2 - term3;
+      lnPhi[i] = lnVal;
+      const boundedLn = Math.max(Math.min(lnVal, 700), -700);
+      phi[i] = Math.exp(boundedLn);
+    }
+    return { phi, lnPhi, logTerm };
   };
   const liquidPhi = calcPhi(Zliquid);
   const vaporPhi = calcPhi(Zvapor);
@@ -156,6 +181,10 @@ function buildMixtureState(componentIds, composition, T, P) {
     phi: {
       liquid: liquidPhi.phi,
       vapor: vaporPhi.phi,
+    },
+    lnPhi: {
+      liquid: liquidPhi.lnPhi,
+      vapor: vaporPhi.lnPhi,
     },
     logTerm: {
       liquid: liquidPhi.logTerm,
@@ -201,9 +230,19 @@ function solveRachfordRice(K, z) {
     }
     return sum;
   };
+  const evalDerivative = (V) => {
+    let sum = 0;
+    for (let i = 0; i < K.length; i += 1) {
+      const denom = 1 + V * (K[i] - 1);
+      if (denom <= 0) return Number.NaN;
+      const numer = z[i] * (K[i] - 1);
+      sum -= (numer * (K[i] - 1)) / (denom * denom);
+    }
+    return sum;
+  };
   const f0 = evalF(0);
   const f1 = evalF(1);
-  if (Number.isNaN(f0) || Number.isNaN(f1)) {
+  if (!Number.isFinite(f0) || !Number.isFinite(f1)) {
     return { status: "invalid" };
   }
   if (f0 < 0 && f1 < 0) {
@@ -214,18 +253,36 @@ function solveRachfordRice(K, z) {
   }
   let lower = 0;
   let upper = 1;
-  let mid = 0.5;
+  let V = 0.5;
   for (let iter = 0; iter < 100; iter += 1) {
-    mid = 0.5 * (lower + upper);
-    const fmid = evalF(mid);
-    if (Math.abs(fmid) < 1e-10) break;
-    if (fmid > 0) {
-      lower = mid;
-    } else {
-      upper = mid;
+    const fV = evalF(V);
+    if (!Number.isFinite(fV)) {
+      return { status: "invalid" };
     }
+    if (Math.abs(fV) < 1e-12) {
+      break;
+    }
+    if (fV > 0) {
+      lower = V;
+    } else {
+      upper = V;
+    }
+    const dfV = evalDerivative(V);
+    let nextV = V;
+    if (Number.isFinite(dfV) && Math.abs(dfV) > 1e-12) {
+      nextV = V - fV / dfV;
+    }
+    if (!Number.isFinite(nextV) || nextV <= lower || nextV >= upper) {
+      nextV = 0.5 * (lower + upper);
+    }
+    if (Math.abs(nextV - V) < 1e-12) {
+      V = nextV;
+      break;
+    }
+    V = nextV;
   }
-  return { status: "two-phase", vaporFraction: mid };
+  V = Math.min(Math.max(V, 1e-12), 1 - 1e-12);
+  return { status: "two-phase", vaporFraction: V };
 }
 
 function normaliseComposition(vector) {
@@ -282,6 +339,9 @@ function splitMixture(componentIds, z, K) {
   const y = new Array(z.length);
   for (let i = 0; i < z.length; i += 1) {
     const denom = 1 + V * (K[i] - 1);
+    if (denom <= 0) {
+      return { type: "invalid" };
+    }
     x[i] = z[i] / denom;
     y[i] = K[i] * x[i];
   }
@@ -307,21 +367,31 @@ function flashCalculation({ componentIds, composition, temperature, pressure }) 
       },
     };
   }
+  const relaxation = 0.5;
   for (let iter = 0; iter < 100; iter += 1) {
     split = splitMixture(componentIds, composition, K);
     if (split.type !== "two-phase") break;
     const liquidState = buildMixtureState(componentIds, split.x, T, P);
     const vaporState = buildMixtureState(componentIds, split.y, T, P);
-    const phiL = liquidState.phi.liquid;
-    const phiV = vaporState.phi.vapor;
+    const lnPhiL = liquidState.lnPhi.liquid;
+    const lnPhiV = vaporState.lnPhi.vapor;
     const newK = new Array(K.length);
     let maxChange = 0;
     for (let i = 0; i < K.length; i += 1) {
-      newK[i] = Math.max(1e-6, K[i] * (phiL[i] / phiV[i]));
+      const safeK = Math.min(Math.max(K[i], 1e-8), 1e8);
+      const currentLnK = Math.log(safeK);
+      let targetLnK = lnPhiL[i] - lnPhiV[i];
+      if (!Number.isFinite(targetLnK)) {
+        targetLnK = currentLnK;
+      }
+      const updatedLnK = currentLnK + relaxation * (targetLnK - currentLnK);
+      const boundedLnK = Math.max(Math.min(updatedLnK, 20), -20);
+      const candidateK = Math.exp(boundedLnK);
+      newK[i] = Math.min(Math.max(candidateK, 1e-8), 1e6);
       maxChange = Math.max(maxChange, Math.abs(newK[i] - K[i]));
     }
     K = newK;
-    if (maxChange < 1e-7) {
+    if (maxChange < 1e-8) {
       break;
     }
   }

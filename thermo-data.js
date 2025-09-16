@@ -259,7 +259,7 @@ const COMPONENTS = [
   },
 ];
 
-const BINARY_INTERACTIONS = {
+const BASE_BINARY_INTERACTIONS = {
   C1: { H2O: 0.35, Air: 0.03, N2: 0.025, O2: 0.03 },
   C2: { H2O: 0.35, Air: 0.03, N2: 0.025, O2: 0.03 },
   C3: { H2O: 0.35, Air: 0.03, N2: 0.025, O2: 0.03 },
@@ -287,10 +287,122 @@ const BINARY_INTERACTIONS = {
     N2: 0.03,
     O2: 0.03,
   },
-  Air: { C1: 0.03, C2: 0.03, C3: 0.03, iC4: 0.035, nC4: 0.035, C5: 0.035, C6: 0.04, C7: 0.04, C8: 0.042, C9: 0.042, C10: 0.045, H2O: 0.03 },
-  N2: { C1: 0.025, C2: 0.025, C3: 0.025, iC4: 0.028, nC4: 0.028, C5: 0.028, C6: 0.032, C7: 0.032, C8: 0.034, C9: 0.034, C10: 0.035, H2O: 0.03 },
-  O2: { C1: 0.03, C2: 0.03, C3: 0.03, iC4: 0.035, nC4: 0.035, C5: 0.035, C6: 0.04, C7: 0.04, C8: 0.042, C9: 0.042, C10: 0.045, H2O: 0.03 },
+  Air: {
+    C1: 0.03,
+    C2: 0.03,
+    C3: 0.03,
+    iC4: 0.035,
+    nC4: 0.035,
+    C5: 0.035,
+    C6: 0.04,
+    C7: 0.04,
+    C8: 0.042,
+    C9: 0.042,
+    C10: 0.045,
+    H2O: 0.03,
+  },
+  N2: {
+    C1: 0.025,
+    C2: 0.025,
+    C3: 0.025,
+    iC4: 0.028,
+    nC4: 0.028,
+    C5: 0.028,
+    C6: 0.032,
+    C7: 0.032,
+    C8: 0.034,
+    C9: 0.034,
+    C10: 0.035,
+    H2O: 0.03,
+  },
+  O2: {
+    C1: 0.03,
+    C2: 0.03,
+    C3: 0.03,
+    iC4: 0.035,
+    nC4: 0.035,
+    C5: 0.035,
+    C6: 0.04,
+    C7: 0.04,
+    C8: 0.042,
+    C9: 0.042,
+    C10: 0.045,
+    H2O: 0.03,
+  },
 };
+
+function cloneMatrix(matrix) {
+  const result = {};
+  Object.keys(matrix).forEach((key) => {
+    result[key] = { ...matrix[key] };
+  });
+  return result;
+}
+
+function estimateBinaryInteractionValue(componentA, componentB) {
+  const dOmega = Math.abs(
+    componentA.acentricFactor - componentB.acentricFactor
+  );
+  const avgTc = componentA.criticalTemperature + componentB.criticalTemperature;
+  const avgPc = componentA.criticalPressure + componentB.criticalPressure;
+  const dTc =
+    avgTc === 0
+      ? 0
+      : Math.abs(
+          componentA.criticalTemperature - componentB.criticalTemperature
+        ) / avgTc;
+  const dPc =
+    avgPc === 0
+      ? 0
+      : Math.abs(
+          componentA.criticalPressure - componentB.criticalPressure
+        ) / avgPc;
+  const dAssociation = Math.abs(
+    (componentA.associationFactor || 0) -
+      (componentB.associationFactor || 0)
+  );
+  const dDipole = Math.abs(
+    (componentA.dipoleMoment || 0) - (componentB.dipoleMoment || 0)
+  );
+  let kij =
+    0.05 * dOmega +
+    0.08 * dTc +
+    0.03 * dPc +
+    0.01 * dAssociation +
+    0.002 * dDipole;
+  kij = Math.max(0, Math.min(0.5, kij));
+  return Number(kij.toFixed(5));
+}
+
+function buildBinaryInteractionMatrix(baseMatrix) {
+  const matrix = cloneMatrix(baseMatrix);
+  COMPONENTS.forEach((compA, indexA) => {
+    if (!matrix[compA.id]) {
+      matrix[compA.id] = {};
+    }
+    matrix[compA.id][compA.id] = 0;
+    for (let indexB = indexA + 1; indexB < COMPONENTS.length; indexB += 1) {
+      const compB = COMPONENTS[indexB];
+      if (!matrix[compB.id]) {
+        matrix[compB.id] = {};
+      }
+      const existing = matrix[compA.id][compB.id];
+      const value =
+        typeof existing === "number"
+          ? existing
+          : estimateBinaryInteractionValue(compA, compB);
+      matrix[compA.id][compB.id] = value;
+      if (typeof matrix[compB.id][compA.id] !== "number") {
+        matrix[compB.id][compA.id] = value;
+      }
+    }
+  });
+  return matrix;
+}
+
+const BINARY_INTERACTIONS = buildBinaryInteractionMatrix(
+  BASE_BINARY_INTERACTIONS
+);
 
 function getComponent(id) {
   return COMPONENTS.find((item) => item.id === id);
