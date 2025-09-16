@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Термодинамический калькулятор (Пенг — Робинсон)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Расчёт фазового состояния по уравнению Пенга — Робинсона</h1>
+      <p>
+        Инструмент выполняет расчёт вспышки (isothermal flash) для выбранной
+        смеси, определяет состав фаз, плотность, вязкость, теплопроводность и
+        теплоёмкость каждой фазы на основе термодинамических и
+        транспортных корреляций промышленного уровня точности.
+      </p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Исходные данные</h2>
+        <div class="controls">
+          <div class="components">
+            <div class="components-header">
+              <h3>Компонентный состав (мольные доли)</h3>
+              <button id="add-component" type="button">Добавить компонент</button>
+            </div>
+            <div id="component-rows" class="component-rows"></div>
+          </div>
+          <div class="conditions">
+            <label>
+              Температура, °C
+              <input id="temperature" type="number" step="0.01" value="25" />
+            </label>
+            <label>
+              Давление, бар (abs)
+              <input id="pressure" type="number" step="0.01" value="50" />
+            </label>
+            <label>
+              Массовый расход, кг/ч
+              <input id="mass-flow" type="number" step="0.01" value="1000" />
+            </label>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="calculate" type="button">Рассчитать</button>
+        </div>
+        <p class="hint">
+          Значения концентраций нормируются автоматически. Для расчёта фазовых
+          свойств используется точное уравнение состояния Пенга — Робинсона с
+          итерационным уточнением коэффициентов равновесия по фугитивностям.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Результаты</h2>
+        <div id="results" class="results">
+          <p>Введите данные и запустите расчёт.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Корреляции: Peng–Robinson EOS, Wilson/Rachford–Rice flash, Chung et al.
+        (вязкость и теплопроводность газов), Lohrenz–Bray–Clark (вязкость
+        жидкостей), API/Chao–Seader (теплоёмкость), Wassiljewa–Mason–Saxena
+        (теплопроводность смесей).
+      </p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
