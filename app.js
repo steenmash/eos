@@ -1,15 +1,38 @@
 import { COMPONENTS, getComponent } from "./thermo-data.js";
 import { flashCalculation } from "./eos.js";
 
-const componentRows = document.getElementById("component-rows");
-const addComponentBtn = document.getElementById("add-component");
-const calculateBtn = document.getElementById("calculate");
-const resultsContainer = document.getElementById("results");
-const temperatureInput = document.getElementById("temperature");
-const pressureInput = document.getElementById("pressure");
-const massFlowInput = document.getElementById("mass-flow");
+let componentRows;
+let addComponentBtn;
+let calculateBtn;
+let resultsContainer;
+let temperatureInput;
+let pressureInput;
+let massFlowInput;
+
+function cacheDomElements() {
+  componentRows = document.getElementById("component-rows");
+  addComponentBtn = document.getElementById("add-component");
+  calculateBtn = document.getElementById("calculate");
+  resultsContainer = document.getElementById("results");
+  temperatureInput = document.getElementById("temperature");
+  pressureInput = document.getElementById("pressure");
+  massFlowInput = document.getElementById("mass-flow");
+}
+
+function ensureDomReady() {
+  return (
+    componentRows &&
+    addComponentBtn &&
+    calculateBtn &&
+    resultsContainer &&
+    temperatureInput &&
+    pressureInput &&
+    massFlowInput
+  );
+}
 
 function createComponentRow(initialId = "", value = "") {
+  if (!componentRows) return;
   const row = document.createElement("div");
   row.className = "component-row";
 
@@ -50,6 +73,7 @@ function createComponentRow(initialId = "", value = "") {
 }
 
 function initRows() {
+  if (!componentRows) return;
   if (componentRows.children.length === 0) {
     createComponentRow("C1", 0.8);
     createComponentRow("C2", 0.1);
@@ -58,6 +82,14 @@ function initRows() {
 }
 
 function parseInputs() {
+  if (
+    !componentRows ||
+    !temperatureInput ||
+    !pressureInput ||
+    !massFlowInput
+  ) {
+    throw new Error("Интерфейс не инициализирован. Перезагрузите страницу.");
+  }
   const rows = Array.from(componentRows.querySelectorAll(".component-row"));
   const componentIds = [];
   const fractions = [];
@@ -216,6 +248,7 @@ function renderPhaseBlock(name, data, flows) {
 }
 
 function renderResults(input, result) {
+  if (!resultsContainer) return;
   resultsContainer.innerHTML = "";
   const summary = document.createElement("div");
   summary.className = "warning";
@@ -246,6 +279,7 @@ function renderResults(input, result) {
 }
 
 function renderError(message) {
+  if (!resultsContainer) return;
   resultsContainer.innerHTML = "";
   const block = document.createElement("div");
   block.className = "warning";
@@ -253,23 +287,39 @@ function renderError(message) {
   resultsContainer.appendChild(block);
 }
 
-addComponentBtn.addEventListener("click", () => {
-  createComponentRow();
-});
-
-calculateBtn.addEventListener("click", () => {
-  try {
-    const input = parseInputs();
-    const result = flashCalculation({
-      componentIds: input.componentIds,
-      composition: input.composition,
-      temperature: input.temperature,
-      pressure: input.pressure,
-    });
-    renderResults(input, result);
-  } catch (error) {
-    renderError(error.message);
+function initializeUi() {
+  cacheDomElements();
+  if (!ensureDomReady()) {
+    console.error("Не удалось инициализировать элементы интерфейса.");
+    return;
   }
-});
 
-initRows();
+  addComponentBtn.addEventListener("click", () => {
+    createComponentRow();
+  });
+
+  calculateBtn.addEventListener("click", () => {
+    try {
+      const input = parseInputs();
+      const result = flashCalculation({
+        componentIds: input.componentIds,
+        composition: input.composition,
+        temperature: input.temperature,
+        pressure: input.pressure,
+      });
+      renderResults(input, result);
+    } catch (error) {
+      renderError(error.message);
+    }
+  });
+
+  initRows();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeUi, {
+    once: true,
+  });
+} else {
+  initializeUi();
+}
