@@ -1,6 +1,7 @@
-export const GAS_CONSTANT = 0.08314462618; // L·bar·mol⁻¹·K⁻¹
+(function (global) {
+const GAS_CONSTANT = 0.08314462618; // L·bar·mol⁻¹·K⁻¹
 
-export const COMPONENTS = [
+const COMPONENTS = [
   {
     id: "C1",
     name: "Метан",
@@ -258,7 +259,7 @@ export const COMPONENTS = [
   },
 ];
 
-export const BINARY_INTERACTIONS = {
+const BINARY_INTERACTIONS = {
   C1: { H2O: 0.35, Air: 0.03, N2: 0.025, O2: 0.03 },
   C2: { H2O: 0.35, Air: 0.03, N2: 0.025, O2: 0.03 },
   C3: { H2O: 0.35, Air: 0.03, N2: 0.025, O2: 0.03 },
@@ -291,13 +292,28 @@ export const BINARY_INTERACTIONS = {
   O2: { C1: 0.03, C2: 0.03, C3: 0.03, iC4: 0.035, nC4: 0.035, C5: 0.035, C6: 0.04, C7: 0.04, C8: 0.042, C9: 0.042, C10: 0.045, H2O: 0.03 },
 };
 
-export function getComponent(id) {
+function getComponent(id) {
   return COMPONENTS.find((item) => item.id === id);
 }
 
-export function binaryInteraction(i, j) {
+function binaryInteraction(i, j) {
   if (i === j) return 0;
   const row = BINARY_INTERACTIONS[i];
   if (!row) return 0;
   return row[j] ?? 0;
 }
+
+const api = {
+  GAS_CONSTANT,
+  COMPONENTS,
+  BINARY_INTERACTIONS,
+  getComponent,
+  binaryInteraction,
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = api;
+}
+
+global.ThermoData = api;
+})(typeof globalThis !== "undefined" ? globalThis : window);

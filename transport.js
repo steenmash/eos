@@ -1,4 +1,5 @@
-import { getComponent } from "./thermo-data.js";
+(function (global) {
+const { getComponent } = global.ThermoData;
 
 const UNIVERSAL_R = 8.314462618;
 
@@ -54,7 +55,7 @@ function leeGonzalezEakinViscosity(T, density, mixture) {
   return viscosityCp * 1e-3; // Pa·s
 }
 
-export function transportProperties({
+function transportProperties({
   temperature,
   pressure,
   density,
@@ -84,3 +85,14 @@ export function transportProperties({
     thermalConductivity,
   };
 }
+
+const api = {
+  transportProperties,
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = api;
+}
+
+global.Transport = api;
+})(typeof globalThis !== "undefined" ? globalThis : window);
