@@ -1,4 +1,5 @@
-import { getComponent } from "./thermo-data.js";
+(function (global) {
+const { getComponent } = global.ThermoData;
 
 const REFERENCE_T = 298.15; // K
 
@@ -41,14 +42,14 @@ function shomateIntegral(component, T1, T2) {
   return integral(T2) - integral(T1);
 }
 
-export function idealGasHeatCapacity(componentId, temperature) {
+function idealGasHeatCapacity(componentId, temperature) {
   const component = getComponent(componentId);
   if (!component) throw new Error(`Unknown component: ${componentId}`);
   const T = ensureRange(component, temperature);
   return shomateCp(component, T);
 }
 
-export function idealGasHeatCapacityMixture(components, composition, temperature) {
+function idealGasHeatCapacityMixture(components, composition, temperature) {
   let cp = 0;
   for (let i = 0; i < components.length; i += 1) {
     const comp = components[i];
@@ -58,7 +59,7 @@ export function idealGasHeatCapacityMixture(components, composition, temperature
   return cp;
 }
 
-export function idealGasEnthalpy(componentId, temperature) {
+function idealGasEnthalpy(componentId, temperature) {
   const component = getComponent(componentId);
   if (!component) throw new Error(`Unknown component: ${componentId}`);
   const T = ensureRange(component, temperature);
@@ -66,7 +67,7 @@ export function idealGasEnthalpy(componentId, temperature) {
   return shomateIntegral(component, reference, T);
 }
 
-export function mixtureIdealEnthalpy(components, composition, temperature) {
+function mixtureIdealEnthalpy(components, composition, temperature) {
   let h = 0;
   for (let i = 0; i < components.length; i += 1) {
     const comp = components[i];
@@ -75,3 +76,17 @@ export function mixtureIdealEnthalpy(components, composition, temperature) {
   }
   return h;
 }
+
+const api = {
+  idealGasHeatCapacity,
+  idealGasHeatCapacityMixture,
+  idealGasEnthalpy,
+  mixtureIdealEnthalpy,
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = api;
+}
+
+global.HeatCapacity = api;
+})(typeof globalThis !== "undefined" ? globalThis : window);

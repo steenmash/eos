@@ -1,5 +1,6 @@
-import { COMPONENTS, getComponent } from "./thermo-data.js";
-import { flashCalculation } from "./eos.js";
+(function (global) {
+const { COMPONENTS, getComponent } = global.ThermoData;
+const { flashCalculation } = global.EOS;
 
 let componentRows;
 let addComponentBtn;
@@ -323,3 +324,4 @@ if (document.readyState === "loading") {
 } else {
   initializeUi();
 }
+})(typeof globalThis !== "undefined" ? globalThis : window);

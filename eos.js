@@ -1,13 +1,10 @@
-import {
-  GAS_CONSTANT,
-  getComponent,
-  binaryInteraction,
-} from "./thermo-data.js";
-import {
+(function (global) {
+const { GAS_CONSTANT, getComponent, binaryInteraction } = global.ThermoData;
+const {
   idealGasHeatCapacityMixture,
   mixtureIdealEnthalpy,
-} from "./heat-capacity.js";
-import { transportProperties } from "./transport.js";
+} = global.HeatCapacity;
+const { transportProperties } = global.Transport;
 
 const SQRT2 = Math.SQRT2;
 const R_SI = GAS_CONSTANT * 100; // J·L⁻¹ -> convert bar·L to J·mol⁻¹·K⁻¹ when multiplied by T
@@ -293,7 +290,7 @@ function splitMixture(componentIds, z, K) {
   return { type: "two-phase", vaporFraction: V, x: xNorm, y: yNorm };
 }
 
-export function flashCalculation({ componentIds, composition, temperature, pressure }) {
+function flashCalculation({ componentIds, composition, temperature, pressure }) {
   const T = temperature;
   const P = pressure;
   const components = componentIds.map((id) => getComponent(id));
@@ -351,3 +348,14 @@ export function flashCalculation({ componentIds, composition, temperature, press
     },
   };
 }
+
+const api = {
+  flashCalculation,
+};
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = api;
+}
+
+global.EOS = api;
+})(typeof globalThis !== "undefined" ? globalThis : window);
